@@ -1,38 +1,118 @@
-from collections import namedtuple
-import altair as alt
-import math
+import datetime
 import pandas as pd
 import streamlit as st
+import numpy as np
+from numpy import datetime64
+
 
 """
-# Welcome to Streamlit!
-
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
+# Oil and Gas Dashboard
 """
+#altair https://github.com/streamlit/example-app-commenting/
+# Give the location of the file
+xls_file = "PET_PRI_SPT_S1_D.xls"
+xls = pd.ExcelFile(xls_file)
+df_crude_oil = pd.read_excel(xls, 'Data 1')
+df_conv_gas = pd.read_excel(xls, 'Data 2')
+df_reg_gas = pd.read_excel(xls, 'Data 3')
+df_heating_oil = pd.read_excel(xls, 'Data 4')
+df_diesel_fuel = pd.read_excel(xls, 'Data 5')
+df_kerosene= pd.read_excel(xls, 'Data 6')
+df_propane = pd.read_excel(xls, 'Data 7')
+
+us_crude_label = 'oil price $, US Cushing OK'
+euro_crude_label = 'oil price $, Europe'
+newyork_conv_label = 'NY Conv Gas'
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+st.sidebar.header("Oil Filters:")
 
-    points_per_turn = total_points / num_turns
+df_crude_oil_graph = pd.DataFrame({'date': df_crude_oil.iloc[2:,0]})
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+oil_types = st.sidebar.multiselect(
+    "Select the Fuel Types:",
+    options=[us_crude_label,  euro_crude_label],
+    default=[us_crude_label,  euro_crude_label],
+)
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+print(oil_types);
+
+if us_crude_label in oil_types:
+    df_crude_oil_graph[us_crude_label] =df_crude_oil.iloc[2:,1]
+ 
+if euro_crude_label in oil_types:
+    df_crude_oil_graph[euro_crude_label] =df_crude_oil.iloc[2:,2]
+
+
+df_crude_oil_graph.date.astype(datetime64)
+df_crude_oil_graph = df_crude_oil_graph.set_index('date')
+
+col1, col2 = st.columns(2)
+
+start_date_range = st.sidebar.radio(
+     "What's your time range?",
+     ( '5 years', '1 year', '3 months', '1 month', 'Custom Range'))
+years = 0
+days = 0
+if start_date_range != 'Custom Range':
+    if 'month' in start_date_range:
+        days -= int(start_date_range[0]) * 30
+        start_date = datetime.datetime.now() + datetime.timedelta(days)
+    else:
+        years -= int(start_date_range[0])
+        days_per_year = 365.24
+        start_date = datetime.datetime.now() + datetime.timedelta(days=(years*days_per_year))
+    end_date = datetime.datetime.now()
+else:
+    with col1:
+        years -= int(5)
+        days_per_year = 365.24
+        start_date_text = datetime.datetime.now() + datetime.timedelta(days=(years*days_per_year))
+        start_date = st.sidebar.date_input(
+        "Start Date",
+        start_date_text)
+   
+    with col2:
+        end_date = st.sidebar.date_input(
+        "End Date",
+      datetime.datetime.now())
+   
+
+df_selection = df_crude_oil_graph.query(
+    "date >= @start_date & date <= @end_date"
+)
+
+left_column, middle_column, right_column = st.columns(3)
+
+if oil_types:
+  with left_column:
+      st.subheader("Average Price")
+      if us_crude_label in oil_types:
+        st.write(f"US Crude: $ {np.round(df_selection[us_crude_label].mean(),2)}")
+      if euro_crude_label in oil_types:    
+        st.write(f"Europe Crude:$ {np.round(df_selection[euro_crude_label].mean(),2)}")
+  with middle_column:
+     st.subheader("Maximum Price:")
+     if us_crude_label in oil_types:
+        st.write(f"US Crude $ {np.round(df_selection[us_crude_label].max())}")
+     if euro_crude_label in oil_types:    
+        st.write(f"Europe Crude $ {np.round(df_selection[euro_crude_label].max())}")
+  with right_column:
+    st.subheader("Minimum Price")
+    if us_crude_label in oil_types:
+      st.write(f"US Crude $ {np.round(df_selection[us_crude_label].min())}")
+    if euro_crude_label in oil_types:    
+      st.write(f"Europe Crude $ {np.round(df_selection[euro_crude_label].min())}")
+else:
+    st.subheader("No Fuel Types Selected")
+
+st.line_chart(df_selection)
+
+sf_sort = df_selection.sort_values("date", axis = 0, ascending = False)
+st.dataframe(sf_sort)
+
+
+
+# Get Examples in Excel https://docs.microsoft.com/en-us/power-bi/create-reports/sample-datasets#explore-excel-samples-in-excel
+# This is from a consulting company that has real anonymized data.

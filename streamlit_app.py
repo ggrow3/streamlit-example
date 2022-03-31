@@ -5,8 +5,10 @@ import numpy as np
 from numpy import datetime64
 
 
+#Merge Dataframes
+
 """
-# Oil and Gas Dashboard
+# Fuel Cost Dashboard
 """
 #altair https://github.com/streamlit/example-app-commenting/
 # Give the location of the file
@@ -22,21 +24,21 @@ df_propane = pd.read_excel(xls, 'Data 7')
 
 us_crude_label = 'oil price $, US Cushing OK'
 euro_crude_label = 'oil price $, Europe'
-newyork_conv_label = 'NY Conv Gas'
+newyork_conv_label = 'Conv gase $, US NY'
+gulf_kersone_label = 'Kerosene $, US Gulf Coast'
 
 
-
-st.sidebar.header("Oil Filters:")
+st.sidebar.header("Fuel Type Filters:")
 
 df_crude_oil_graph = pd.DataFrame({'date': df_crude_oil.iloc[2:,0]})
 
 oil_types = st.sidebar.multiselect(
     "Select the Fuel Types:",
-    options=[us_crude_label,  euro_crude_label],
+    options=[us_crude_label,  euro_crude_label,newyork_conv_label,gulf_kersone_label],
     default=[us_crude_label,  euro_crude_label],
 )
 
-print(oil_types);
+print(oil_types)
 
 if us_crude_label in oil_types:
     df_crude_oil_graph[us_crude_label] =df_crude_oil.iloc[2:,1]
@@ -44,9 +46,23 @@ if us_crude_label in oil_types:
 if euro_crude_label in oil_types:
     df_crude_oil_graph[euro_crude_label] =df_crude_oil.iloc[2:,2]
 
-
-df_crude_oil_graph.date.astype(datetime64)
+#https://stackoverflow.com/questions/17134716/convert-dataframe-column-type-from-string-to-datetime
+df_crude_oil_graph['date'] = pd.to_datetime(df_crude_oil_graph['date'])
 df_crude_oil_graph = df_crude_oil_graph.set_index('date')
+
+
+if newyork_conv_label in oil_types:
+  df_conv_gas = pd.DataFrame({'date': df_conv_gas.iloc[3:,0], newyork_conv_label:df_conv_gas.iloc[3:,1]})
+  df_conv_gas['date'] = pd.to_datetime(df_conv_gas['date'])
+  df_crude_oil_graph = df_crude_oil_graph.merge(df_conv_gas, how='left', on='date')
+  df_crude_oil_graph = df_crude_oil_graph.set_index('date')  
+  
+if gulf_kersone_label in oil_types:
+  df_kerosene = pd.DataFrame({'date': df_kerosene.iloc[3:,0], gulf_kersone_label:df_kerosene.iloc[3:,1]})
+  df_kerosene['date'] = pd.to_datetime(df_kerosene['date'])
+  df_crude_oil_graph = df_crude_oil_graph.merge(df_kerosene, how='left', on='date')
+  df_crude_oil_graph = df_crude_oil_graph.set_index('date')  
+
 
 col1, col2 = st.columns(2)
 
@@ -88,22 +104,16 @@ left_column, middle_column, right_column = st.columns(3)
 if oil_types:
   with left_column:
       st.subheader("Average Price")
-      if us_crude_label in oil_types:
-        st.write(f"US Crude: $ {np.round(df_selection[us_crude_label].mean(),2)}")
-      if euro_crude_label in oil_types:    
-        st.write(f"Europe Crude:$ {np.round(df_selection[euro_crude_label].mean(),2)}")
+      for fuel_type in oil_types:
+          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].mean(),2)))
   with middle_column:
      st.subheader("Maximum Price:")
-     if us_crude_label in oil_types:
-        st.write(f"US Crude $ {np.round(df_selection[us_crude_label].max())}")
-     if euro_crude_label in oil_types:    
-        st.write(f"Europe Crude $ {np.round(df_selection[euro_crude_label].max())}")
+     for fuel_type in oil_types:
+          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].max(),2)))
   with right_column:
     st.subheader("Minimum Price")
-    if us_crude_label in oil_types:
-      st.write(f"US Crude $ {np.round(df_selection[us_crude_label].min())}")
-    if euro_crude_label in oil_types:    
-      st.write(f"Europe Crude $ {np.round(df_selection[euro_crude_label].min())}")
+    for fuel_type in oil_types:
+          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].min(),2)))
 else:
     st.subheader("No Fuel Types Selected")
 

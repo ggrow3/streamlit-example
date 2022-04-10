@@ -1,67 +1,54 @@
 import datetime
+from doctest import master
 import pandas as pd
 import streamlit as st
 import numpy as np
 from numpy import datetime64
+import xlrd
 
-
-#Merge Dataframes
 
 """
 # Fuel Cost Dashboard
 """
-#altair https://github.com/streamlit/example-app-commenting/
-# Give the location of the file
-xls_file = "PET_PRI_SPT_S1_D.xls"
-xls = pd.ExcelFile(xls_file)
-df_crude_oil = pd.read_excel(xls, 'Data 1')
-df_conv_gas = pd.read_excel(xls, 'Data 2')
-df_reg_gas = pd.read_excel(xls, 'Data 3')
-df_heating_oil = pd.read_excel(xls, 'Data 4')
-df_diesel_fuel = pd.read_excel(xls, 'Data 5')
-df_kerosene= pd.read_excel(xls, 'Data 6')
-df_propane = pd.read_excel(xls, 'Data 7')
+def get_data_frame(xls_file):
+    xls = pd.ExcelFile(xls_file)
+    sheets_dict = pd.read_excel(xls_file, sheet_name=None)
+    master_df = None
+    sheet_name = []
+    for name, sheet in sheets_dict.items():
+        excel_df = pd.read_excel(xls, name)
+    
+        if "Data" in name:
+            sheet_name.append(excel_df.columns.values[1].split(':')[1].strip())
+  
+            key_dict = {}
+            for i,value in enumerate(excel_df.iloc[1,:].values):
+                key_dict[value] = list(excel_df.iloc[2:,i])
+            
+            df = pd.DataFrame(key_dict)
+         
+            df['Date'] = pd.to_datetime(df['Date'])
+            df = df.set_index('Date')
+     
+            if master_df is None:
+                master_df = df
+            else:
+                master_df = pd.merge(master_df, df, how="outer", on="Date")
+    return master_df
 
-us_crude_label = 'oil price $, US Cushing OK'
-euro_crude_label = 'oil price $, Europe'
-newyork_conv_label = 'Conv gase $, US NY'
-gulf_kersone_label = 'Kerosene $, US Gulf Coast'
-
+uploaded_file = st.file_uploader("Choose a XLS file", type="xls")
+#xls_file = "PET_PRI_SPT_S1_D.xls"
+xls_file = uploaded_file
+master_df = get_data_frame(xls_file)
 
 st.sidebar.header("Fuel Type Filters:")
 
-df_crude_oil_graph = pd.DataFrame({'date': df_crude_oil.iloc[2:,0]})
-
 oil_types = st.sidebar.multiselect(
     "Select the Fuel Types:",
-    options=[us_crude_label,  euro_crude_label,newyork_conv_label,gulf_kersone_label],
-    default=[us_crude_label,  euro_crude_label],
+    options= master_df.columns.values
+    #default= master_df.columns.values
 )
 
-print(oil_types)
-
-if us_crude_label in oil_types:
-    df_crude_oil_graph[us_crude_label] =df_crude_oil.iloc[2:,1]
- 
-if euro_crude_label in oil_types:
-    df_crude_oil_graph[euro_crude_label] =df_crude_oil.iloc[2:,2]
-
-#https://stackoverflow.com/questions/17134716/convert-dataframe-column-type-from-string-to-datetime
-df_crude_oil_graph['date'] = pd.to_datetime(df_crude_oil_graph['date'])
-df_crude_oil_graph = df_crude_oil_graph.set_index('date')
-
-
-if newyork_conv_label in oil_types:
-  df_conv_gas = pd.DataFrame({'date': df_conv_gas.iloc[3:,0], newyork_conv_label:df_conv_gas.iloc[3:,1]})
-  df_conv_gas['date'] = pd.to_datetime(df_conv_gas['date'])
-  df_crude_oil_graph = df_crude_oil_graph.merge(df_conv_gas, how='left', on='date')
-  df_crude_oil_graph = df_crude_oil_graph.set_index('date')  
-  
-if gulf_kersone_label in oil_types:
-  df_kerosene = pd.DataFrame({'date': df_kerosene.iloc[3:,0], gulf_kersone_label:df_kerosene.iloc[3:,1]})
-  df_kerosene['date'] = pd.to_datetime(df_kerosene['date'])
-  df_crude_oil_graph = df_crude_oil_graph.merge(df_kerosene, how='left', on='date')
-  df_crude_oil_graph = df_crude_oil_graph.set_index('date')  
 
 
 col1, col2 = st.columns(2)
@@ -94,10 +81,14 @@ else:
         "End Date",
       datetime.datetime.now())
    
-
-df_selection = df_crude_oil_graph.query(
-    "date >= @start_date & date <= @end_date"
+df_selection = master_df.query(
+    "Date >= @start_date & Date <= @end_date"
 )
+
+for col_name in master_df.columns.values:
+    if col_name not in oil_types:
+        df_selection.drop(col_name, axis=1, inplace=True)
+       
 
 left_column, middle_column, right_column = st.columns(3)
 
@@ -105,22 +96,22 @@ if oil_types:
   with left_column:
       st.subheader("Average Price")
       for fuel_type in oil_types:
-          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].mean(),2)))
+        st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].mean(),2)))
   with middle_column:
      st.subheader("Maximum Price:")
      for fuel_type in oil_types:
-          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].max(),2)))
+         st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].max(),2)))
   with right_column:
     st.subheader("Minimum Price")
     for fuel_type in oil_types:
-          st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].min(),2)))
+      st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].min(),2)))
 else:
     st.subheader("No Fuel Types Selected")
 
 st.line_chart(df_selection)
 
-sf_sort = df_selection.sort_values("date", axis = 0, ascending = False)
-st.dataframe(sf_sort)
+sf_sort = df_selection.sort_values("Date", axis = 0, ascending = False)
+st.dataframe(df_selection)
 
 
 

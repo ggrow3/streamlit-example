@@ -105,15 +105,15 @@ left_column, middle_column, right_column = st.columns(3)
 
 if oil_types:
   with left_column:
-      st.subheader("Average Price")
+      st.subheader("Average")
       for fuel_type in oil_types:
           st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].mean(),2)))
   with middle_column:
-     st.subheader("Maximum Price:")
+     st.subheader("Maximum:")
      for fuel_type in oil_types:
           st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].max(),2)))
   with right_column:
-    st.subheader("Minimum Price")
+    st.subheader("Minimum")
     for fuel_type in oil_types:
           st.write(fuel_type + ":" + str(np.round(df_selection[fuel_type].min(),2)))
 else:

@@ -36,19 +36,23 @@ def get_data_frame(xls_file):
                 master_df = pd.merge(master_df, df, how="outer", on="Date")
     return master_df
 
-uploaded_file = st.file_uploader("Choose a XLS file", type="xls")
+uploaded_file = st.sidebar.file_uploader("Choose a XLS file", type="xls")
 #xls_file = "PET_PRI_SPT_S1_D.xls"
 xls_file = uploaded_file
-master_df = get_data_frame(xls_file)
+
+if uploaded_file is not None:
+    master_df = get_data_frame(xls_file)
+else:
+    master_df = pd.DataFrame({'Date':[]})
 
 st.sidebar.header("Fuel Type Filters:")
+
 
 oil_types = st.sidebar.multiselect(
     "Select the Fuel Types:",
     options= master_df.columns.values
     #default= master_df.columns.values
 )
-
 
 
 col1, col2 = st.columns(2)
@@ -86,8 +90,8 @@ df_selection = master_df.query(
 )
 
 for col_name in master_df.columns.values:
-    if col_name not in oil_types:
-        df_selection.drop(col_name, axis=1, inplace=True)
+  if col_name not in oil_types:
+    df_selection.drop(col_name, axis=1, inplace=True)
        
 
 left_column, middle_column, right_column = st.columns(3)
@@ -110,9 +114,9 @@ else:
 
 st.line_chart(df_selection)
 
-sf_sort = df_selection.sort_values("Date", axis = 0, ascending = False)
-st.dataframe(df_selection)
-
+if uploaded_file is not None:
+  sf_sort = df_selection.sort_values("Date", axis = 0, ascending = False)
+  st.dataframe(sf_sort)  
 
 
 # Get Examples in Excel https://docs.microsoft.com/en-us/power-bi/create-reports/sample-datasets#explore-excel-samples-in-excel
